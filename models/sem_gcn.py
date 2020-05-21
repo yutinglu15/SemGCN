@@ -1,5 +1,7 @@
 from __future__ import absolute_import
 
+from functools import reduce
+
 import torch.nn as nn
 from models.sem_graph_conv import SemGraphConv
 from models.graph_non_local import GraphNonLocal
@@ -46,13 +48,13 @@ class _GraphNonLocal(nn.Module):
     def __init__(self, hid_dim, grouped_order, restored_order, group_size):
         super(_GraphNonLocal, self).__init__()
 
-        self.nonlocal = GraphNonLocal(hid_dim, sub_sample=group_size)
+        self.non_local = GraphNonLocal(hid_dim, sub_sample=group_size)
         self.grouped_order = grouped_order
         self.restored_order = restored_order
 
     def forward(self, x):
         out = x[:, self.grouped_order, :]
-        out = self.nonlocal(out.transpose(1, 2)).transpose(1, 2)
+        out = self.non_local(out.transpose(1, 2)).transpose(1, 2)
         out = out[:, self.restored_order, :]
         return out
 

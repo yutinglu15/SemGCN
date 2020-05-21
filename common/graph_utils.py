@@ -41,5 +41,8 @@ def adj_mx_from_edges(num_pts, edges, sparse=True):
 
 def adj_mx_from_skeleton(skeleton):
     num_joints = skeleton.num_joints()
+    print(num_joints)
+
     edges = list(filter(lambda x: x[1] >= 0, zip(list(range(0, num_joints)), skeleton.parents())))
+    print(len(edges), edges)
     return adj_mx_from_edges(num_joints, edges, sparse=False)

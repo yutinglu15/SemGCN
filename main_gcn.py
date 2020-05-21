@@ -100,6 +100,7 @@ def main(args):
 
     p_dropout = (None if args.dropout == 0.0 else args.dropout)
     adj = adj_mx_from_skeleton(dataset.skeleton())
+    print(adj.shape)
     model_pos = SemGCN(adj, args.hid_dim, num_layers=args.num_layers, p_dropout=p_dropout,
                        nodes_group=dataset.skeleton().joints_group() if args.non_local else None).to(device)
     print("==> Total parameters: {:.2f}M".format(sum(p.numel() for p in model_pos.parameters()) / 1000000.0))
@@ -132,7 +133,7 @@ def main(args):
         error_best = None
         glob_step = 0
         lr_now = args.lr
-        ckpt_dir_path = path.join(args.checkpoint, datetime.datetime.now().isoformat())
+        ckpt_dir_path = args.checkpoint+'/'+'test1'
 
         if not path.exists(ckpt_dir_path):
             os.makedirs(ckpt_dir_path)
@@ -162,6 +163,10 @@ def main(args):
         exit(0)
 
     poses_train, poses_train_2d, actions_train = fetch(subjects_train, dataset, keypoints, action_filter, stride)
+    print('2d data shape: ', len(poses_train_2d))
+    print('3d data shape: ', len(poses_train))
+    print('action data shape: ', len(actions_train))
+
     train_loader = DataLoader(PoseGenerator(poses_train, poses_train_2d, actions_train), batch_size=args.batch_size,
                               shuffle=True, num_workers=args.num_workers, pin_memory=True)
 
