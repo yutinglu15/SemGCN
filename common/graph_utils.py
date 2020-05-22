@@ -39,10 +39,12 @@ def adj_mx_from_edges(num_pts, edges, sparse=True):
     return adj_mx
 
 
-def adj_mx_from_skeleton(skeleton):
-    num_joints = skeleton.num_joints()
-    print(num_joints)
+def adj_mx_from_skeleton():
+    # num_joints = skeleton.num_joints()
+    # print(num_joints)
+    num_joints = 16
 
-    edges = list(filter(lambda x: x[1] >= 0, zip(list(range(0, num_joints)), skeleton.parents())))
+    # edges = list(filter(lambda x: x[1] >= 0, zip(list(range(0, num_joints)), skeleton.parents())))
+    edges = [(0, 1), (1, 2), (2, 6), (6, 3), (3, 4), (4, 5), (10, 11), (11, 12), (12, 8), (8, 13), (13, 14), (14, 15), (6, 8), (8, 9)]
     print(len(edges), edges)
     return adj_mx_from_edges(num_joints, edges, sparse=False)

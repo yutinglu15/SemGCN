@@ -70,27 +70,27 @@ def parse_args():
 def main(args):
     print('==> Using settings {}'.format(args))
 
-    print('==> Loading dataset...')
-    dataset_path = path.join('data', 'data_3d_' + args.dataset + '.npz')
-    if args.dataset == 'h36m':
-        from common.h36m_dataset import Human36mDataset, TRAIN_SUBJECTS, TEST_SUBJECTS
-        dataset = Human36mDataset(dataset_path)
-        subjects_train = TRAIN_SUBJECTS
-        subjects_test = TEST_SUBJECTS
-    else:
-        raise KeyError('Invalid dataset')
+    # print('==> Loading dataset...')
+    # dataset_path = path.join('data', 'data_3d_' + args.dataset + '.npz')
+    # if args.dataset == 'h36m':
+    #     from common.h36m_dataset import Human36mDataset, TRAIN_SUBJECTS, TEST_SUBJECTS
+    #     dataset = Human36mDataset(dataset_path)
+    #     subjects_train = TRAIN_SUBJECTS
+    #     subjects_test = TEST_SUBJECTS
+    # else:
+    #     raise KeyError('Invalid dataset')
 
-    print('==> Preparing data...')
-    dataset = read_3d_data(dataset)
-
-    print('==> Loading 2D detections...')
-    keypoints = create_2d_data(path.join('data', 'data_2d_' + args.dataset + '_' + args.keypoints + '.npz'), dataset)
-
-    action_filter = None if args.actions == '*' else args.actions.split(',')
-    if action_filter is not None:
-        action_filter = map(lambda x: dataset.define_actions(x)[0], action_filter)
-        print('==> Selected actions: {}'.format(action_filter))
-
+    # print('==> Preparing data...')
+    # dataset = read_3d_data(dataset)
+    #
+    # print('==> Loading 2D detections...')
+    # keypoints = create_2d_data(path.join('data', 'data_2d_' + args.dataset + '_' + args.keypoints + '.npz'), dataset)
+    #
+    # action_filter = None if args.actions == '*' else args.actions.split(',')
+    # if action_filter is not None:
+    #     action_filter = map(lambda x: dataset.define_actions(x)[0], action_filter)
+    #     print('==> Selected actions: {}'.format(action_filter))
+    #
     stride = args.downsample
     cudnn.benchmark = True
     device = torch.device("cuda")
@@ -99,10 +99,14 @@ def main(args):
     print("==> Creating model...")
 
     p_dropout = (None if args.dropout == 0.0 else args.dropout)
-    adj = adj_mx_from_skeleton(dataset.skeleton())
-    print(adj.shape)
+    # adj = adj_mx_from_skeleton(dataset.skeleton())
+    adj = adj_mx_from_skeleton()
+    print(adj)
+    # model_pos = SemGCN(adj, args.hid_dim, num_layers=args.num_layers, p_dropout=p_dropout,
+    #                    nodes_group=dataset.skeleton().joints_group() if args.non_local else None).to(device)
     model_pos = SemGCN(adj, args.hid_dim, num_layers=args.num_layers, p_dropout=p_dropout,
-                       nodes_group=dataset.skeleton().joints_group() if args.non_local else None).to(device)
+                       nodes_group=None).to(device)
+
     print("==> Total parameters: {:.2f}M".format(sum(p.numel() for p in model_pos.parameters()) / 1000000.0))
 
     criterion = nn.MSELoss(reduction='mean').to(device)
@@ -145,34 +149,47 @@ def main(args):
     if args.evaluate:
         print('==> Evaluating...')
 
-        if action_filter is None:
-            action_filter = dataset.define_actions()
+        # if action_filter is None:
+        #     action_filter = dataset.define_actions()
+        #
+        # errors_p1 = np.zeros(len(action_filter))
+        # errors_p2 = np.zeros(len(action_filter))
 
-        errors_p1 = np.zeros(len(action_filter))
-        errors_p2 = np.zeros(len(action_filter))
+        # for i, action in enumerate(action_filter):
+            # poses_valid, poses_valid_2d, actions_valid = fetch(subjects_test, dataset, keypoints, [action], stride)
+            # valid_loader = DataLoader(PoseGenerator(poses_valid, poses_valid_2d, actions_valid),
+            #                           batch_size=args.batch_size, shuffle=False,
+            #                           num_workers=args.num_workers, pin_memory=True)
+            # poses_valid, poses_valid_2d, actions_valid = fetch(subjects_test, dataset, keypoints, [action], stride)
+        valid_loader = DataLoader(PoseGenerator(opt='val'),
+                                  batch_size=args.batch_size, shuffle=False,
+                                  num_workers=args.num_workers, pin_memory=True)
+        errors_p1, errors_p2 = evaluate(valid_loader, model_pos, device)
 
-        for i, action in enumerate(action_filter):
-            poses_valid, poses_valid_2d, actions_valid = fetch(subjects_test, dataset, keypoints, [action], stride)
-            valid_loader = DataLoader(PoseGenerator(poses_valid, poses_valid_2d, actions_valid),
-                                      batch_size=args.batch_size, shuffle=False,
-                                      num_workers=args.num_workers, pin_memory=True)
-            errors_p1[i], errors_p2[i] = evaluate(valid_loader, model_pos, device)
+        print('Protocol #1   (MPJPE) action-wise average: {:.2f} (mm)'.format(np.mean(errors_p1)))
+        print('Protocol #2 (P-MPJPE) action-wise average: {:.2f} (mm)'.format(np.mean(errors_p2)))
 
-        print('Protocol #1   (MPJPE) action-wise average: {:.2f} (mm)'.format(np.mean(errors_p1).item()))
-        print('Protocol #2 (P-MPJPE) action-wise average: {:.2f} (mm)'.format(np.mean(errors_p2).item()))
+        # print('Protocol #1   (MPJPE) action-wise average: {:.2f} (mm)'.format(np.mean(errors_p1).item()))
+        # print('Protocol #2 (P-MPJPE) action-wise average: {:.2f} (mm)'.format(np.mean(errors_p2).item()))
         exit(0)
 
-    poses_train, poses_train_2d, actions_train = fetch(subjects_train, dataset, keypoints, action_filter, stride)
-    print('2d data shape: ', len(poses_train_2d))
-    print('3d data shape: ', len(poses_train))
-    print('action data shape: ', len(actions_train))
+    # poses_train, poses_train_2d, actions_train = fetch(subjects_train, dataset, keypoints, action_filter, stride)
+    # print('2d data shape: ', len(poses_train_2d))
+    # print('3d data shape: ', len(poses_train))
+    # print('action data shape: ', len(actions_train))
 
-    train_loader = DataLoader(PoseGenerator(poses_train, poses_train_2d, actions_train), batch_size=args.batch_size,
+    # train_loader = DataLoader(PoseGenerator(poses_train, poses_train_2d, actions_train), batch_size=args.batch_size,
+    #                           shuffle=True, num_workers=args.num_workers, pin_memory=True)
+
+    train_loader = DataLoader(PoseGenerator(opt='train'), batch_size=args.batch_size,
                               shuffle=True, num_workers=args.num_workers, pin_memory=True)
 
-    poses_valid, poses_valid_2d, actions_valid = fetch(subjects_test, dataset, keypoints, action_filter, stride)
-    valid_loader = DataLoader(PoseGenerator(poses_valid, poses_valid_2d, actions_valid), batch_size=args.batch_size,
+    # poses_valid, poses_valid_2d, actions_valid = fetch(subjects_test, dataset, keypoints, action_filter, stride)
+    # valid_loader = DataLoader(PoseGenerator(poses_valid, poses_valid_2d, actions_valid), batch_size=args.batch_size,
+    #                           shuffle=False, num_workers=args.num_workers, pin_memory=True)
+    valid_loader = DataLoader(PoseGenerator(opt='val'), batch_size=args.batch_size,
                               shuffle=False, num_workers=args.num_workers, pin_memory=True)
+
 
     for epoch in range(start_epoch, args.epochs):
         print('\nEpoch: %d | LR: %.8f' % (epoch + 1, lr_now))
@@ -215,7 +232,7 @@ def train(data_loader, model_pos, criterion, optimizer, device, lr_init, lr_now,
     end = time.time()
 
     bar = Bar('Train', max=len(data_loader))
-    for i, (targets_3d, inputs_2d, _) in enumerate(data_loader):
+    for i, (targets_3d, inputs_2d) in enumerate(data_loader):
         # Measure data loading time
         data_time.update(time.time() - end)
         num_poses = targets_3d.size(0)
